@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatroom com Fernet</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; display: flex; justify-content: center; align-items: center; height: 90vh; }
+        .container { width: 100%; max-width: 500px; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+        #login-view input { display: block; width: 95%; padding: 8px; margin-bottom: 10px; }
+        #chat-area { height: 400px; border: 1px solid #eee; padding: 10px; overflow-y: scroll; margin-bottom: 10px; background-color: #f9f9f9; }
+        #message-input { width: calc(100% - 80px); padding: 8px; }
+        button { padding: 8px 15px; }
+        .message { margin-bottom: 5px; padding: 5px; }
+        .status-msg { text-align: center; color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-view">
+            <h2>Entrar no Chat</h2>
+            <input type="text" id="username-input" placeholder="Digite seu nome">
+            <input type="text" id="room-input" placeholder="Digite o nome da sala">
+            <button id="join-button">Entrar</button>
+        </div>
+
+        <div id="chat-view" style="display: none;">
+            <h3 id="room-title"></h3>
+            <div id="chat-area"></div>
+            <input type="text" id="message-input" placeholder="Digite sua mensagem">
+            <button id="send-button">Enviar</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js" integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H" crossorigin="anonymous"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+            
+            const loginView = document.getElementById('login-view');
+            const chatView = document.getElementById('chat-view');
+            
+            const joinButton = document.getElementById('join-button');
+            const usernameInput = document.getElementById('username-input');
+            const roomInput = document.getElementById('room-input');
+            
+            const roomTitle = document.getElementById('room-title');
+            const sendButton = document.getElementById('send-button');
+            const messageInput = document.getElementById('message-input');
+            const chatArea = document.getElementById('chat-area');
+            
+            let currentRoom = '';
+            let currentUsername = '';
+
+            joinButton.addEventListener('click', () => {
+                const username = usernameInput.value.trim();
+                const roomName = roomInput.value.trim();
+
+                if (username && roomName) {
+                    currentUsername = username;
+                    currentRoom = roomName;
+
+                    socket.emit('join', { username: currentUsername, room: currentRoom });
+                    
+                    loginView.style.display = 'none';
+                    chatView.style.display = 'block';
+                    roomTitle.innerText = `Sala: ${currentRoom}`;
+                } else {
+                    alert('Por favor, preencha seu nome e o nome da sala.');
+                }
+            });
+
+            sendButton.addEventListener('click', async () => {
+                const message = messageInput.value.trim();
+                if (!message) return;
+
+                const response = await fetch('/encrypt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: currentRoom, message: message })
+                });
+                const data = await response.json();
+
+                if (data.encrypted) {
+                    socket.emit('send_message', { message: data.encrypted });
+                    messageInput.value = '';
+                }
+            });
+            
+            socket.on('new_encrypted_message', async (data) => {
+                const encryptedMsg = data.encrypted_msg;
+                const username = data.username;
+                
+                const response = await fetch('/decrypt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: currentRoom, encrypted_message: encryptedMsg })
+                });
+                const decryptedData = await response.json();
+                
+                if (decryptedData.decrypted) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message');
+                    messageDiv.innerHTML = `<strong>${username}:</strong> ${decryptedData.decrypted}`;
+                    chatArea.appendChild(messageDiv);
+                }
+                chatArea.scrollTop = chatArea.scrollHeight;
+            });
+
+            socket.on('status', (data) => {
+                const statusDiv = document.createElement('div');
+                statusDiv.classList.add('status-msg');
+                statusDiv.innerHTML = `<p><em>${data.msg}</em></p>`;
+                chatArea.appendChild(statusDiv);
+                chatArea.scrollTop = chatArea.scrollHeight;
+            });
+        });
+    </script>
+</body>
+</html>
