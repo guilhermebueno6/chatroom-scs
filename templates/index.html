@@ -96,6 +96,7 @@
             });
             
             socket.on('new_encrypted_message', async (data) => {
+                console.log('Mensagem recebida:', data);
                 const encryptedMsg = data.encrypted_msg;
                 const username = data.username;
                 
@@ -105,6 +106,7 @@
                     body: JSON.stringify({ room: currentRoom, encrypted_message: encryptedMsg })
                 });
                 const decryptedData = await response.json();
+                console.log('Mensagem decriptada:', decryptedData);
                 
                 if (decryptedData.decrypted) {
                     
