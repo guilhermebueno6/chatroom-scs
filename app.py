@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from cryptography.fernet import Fernet
+import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'uma-chave-secreta-muito-dificil-de-adivinhar!'
+app.config['SECRET_KEY'] = 'Nds5Z42A3OshgzP9AyHE'
 socketio = SocketIO(app)
 
 chat_keys = {}
@@ -78,4 +79,7 @@ def on_disconnect():
         print(f"Usuário {username} desconectado.")
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+
+    port = int(os.environ.get('PORT', 5000))
+    
+    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
